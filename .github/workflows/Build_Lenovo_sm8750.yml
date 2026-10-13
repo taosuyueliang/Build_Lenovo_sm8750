@@ -451,37 +451,20 @@ jobs:
               echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
               echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             else
-              # 2026-10-13: builtin 分支已落后（selinux_hide 为 790 行古老血统，缺 #3873/#3877 全部修复线），改用 main 分支构建
+              # 2026-10-13: SukiSU 源改用 main 分支（builtin 为落后血统，缺 #3873/#3877 全部修复线）
+              # main 的 kernel/Makefile 自带版本定义，原 qdy 注入块（含 -TG@qdykernel 标记）不兼容且多余，已移除
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s main
               cd ./KernelSU
               GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
               echo "当前提交哈希: $GIT_COMMIT_HASH"
-              export KSU_VERSION=$KSU_VERSION
-              for i in {1..3}; do
-                KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/builtin/kernel/Makefile" | 
-                  grep -m1 "KSU_VERSION_API :=" | 
-                  awk -F'= ' '{print $2}' | 
-                  tr -d '[:space:]')
-                [ -n "$KSU_API_VERSION" ] && break || sleep 1
-              done
-              [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="4.1.0"
+              KSU_API_VERSION=$(grep -m1 "KSU_VERSION_API :=" kernel/Makefile | awk -F'= ' '{print $2}' | tr -d '[:space:]')
+              [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="4.2.0"
               echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
-              VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'-TG@qdykernel\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'-TG@qdykernel'
-              
-              sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
-              sed -i '/KSU_VERSION_API :=/d' kernel/Makefile
-              sed -i '/KSU_VERSION_FULL :=/d' kernel/Makefile
-              awk -v def="$VERSION_DEFINITIONS" '
-                /REPO_OWNER :=/ {print; print def; inserted=1; next}
-                1
-                END {if (!inserted) print def}
-              ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
               KSU_VERSION=$(expr $(git rev-list --count main) + 37185 2>/dev/null || echo 114514)
               echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
               echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
-              grep -A10 "REPO_OWNER" kernel/Makefile
-              grep "KSU_VERSION_FULL" kernel/Makefile
-              echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}-TG@qdykernel"
+              grep -E "KSU_VERSION_API|KSU_VERSION_FULL" kernel/Makefile | head -4 || true
+              echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}（main 原生命名，无 qdy 标记）"
             fi
 
       - name: 🔧 Apply upstream timing fix #3877 (SukiSU：上游计时侧信道修复 a85dcbc)

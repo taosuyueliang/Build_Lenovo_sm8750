@@ -441,7 +441,9 @@ jobs:
               echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
               echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             elif [ "${{ env.KSU_TYPE }}" == 'KSUNext' ]; then
-              curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/refs/heads/dev/kernel/setup.sh" | bash -s dev
+              # pershoot 维护的 KernelSU-Next susfs 集成分支：上游 dev 全量 + susfs v2.3.0 原生集成（含 #3877 计时修复下游适配）
+              # 2026-10-13 实测：官方 dev 树无 susfs 符号，10_enable 补丁与其结构不兼容；preshoot dev-susfs 是社区标准解法
+              curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/heads/dev-susfs/kernel/setup.sh" | bash -s dev-susfs
               cd ./KernelSU-Next
               KSUNEXT_HASH=$(git rev-parse --short=8 HEAD)
               KSU_VERSION=$(git rev-list --count HEAD 2>/dev/null || echo 0)

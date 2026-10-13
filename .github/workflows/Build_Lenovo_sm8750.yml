@@ -13,7 +13,7 @@ on:
           - 'SukiSU'
           - 'ReSukiSU'
           - 'KSUNext'
-        default: 'ReSukiSU'
+        default: 'SukiSU'
         
       kernel_version:
         description: "📝请选择要编译的版本"
@@ -24,7 +24,7 @@ on:
           - '6.6.89'
           - '6.6.102'
           - '6.6.118'
-        default: '6.6.89'
+        default: '6.6.118'
 
       custom_kernel_suffix:
         description: "✏️ 自定义内核名称 (留空默认官核名称)"
@@ -69,7 +69,7 @@ on:
       enable_signed:
         description: "使用AOSP密钥签名boot"
         required: false
-        default: true
+        default: false
         type: boolean
 
       
@@ -90,10 +90,21 @@ jobs:
       ENABLE_KPM: ${{ github.event.inputs.enable_kpm }}
       ENABLE_SUSFS: ${{ github.event.inputs.enable_susfs }}
       ENABLE_SIGNED: ${{ github.event.inputs.enable_signed }}
+      SUKI_SHA: 6c284e957feaa9a388a9f1c37dc4ec80d95e434b
+      SUSFS_SHA: 2919a9ad01205c21b1ce346f6fda08a979c58003
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: Check timing-backport target
+        if: ${{ env.KSU_TYPE == 'SukiSU' }}
+        run: |
+          test "$KERNEL_VERSION" = '6.6.118'
+          test "$ENABLE_SUSFS" = 'true'
+          if [ "$ENABLE_SIGNED" = 'true' ]; then
+            echo '::error::This branch builds an unsigned candidate. A verified 358 stock boot is required for final repacking; the inherited 183 shell must not be substituted.'
+            exit 1
+          fi
       - name: ⚙️ Set Kernel version config(设置对应内核版本配置文件)
         run: |
           echo "KERNEL_TIME=${{ env.CUSTOM_KERNEL_TIME }}" >> $GITHUB_ENV
@@ -451,10 +462,11 @@ jobs:
               echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
               echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             else
-              # 2026-10-13 复盘定案：SukiSU 的 susfs 完整活在 builtin 分支（4/1 重构后 5168273c 一小时即补回）
-              # main 分支 4/1 起无 susfs 符号（ad8949ef 移除）；builtin 的老 selinux_hide 无计时泄漏代码，#3877 无需应用
-              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
+              # Keep the working manager/SUSFS ABI, then backport BOTH sides of #3877.
+              curl -fLSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/${SUKI_SHA}/kernel/setup.sh" | bash -s builtin
               cd ./KernelSU
+              git checkout --detach "$SUKI_SHA"
+              test "$(git rev-parse HEAD)" = "$SUKI_SHA"
               GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
               echo "当前提交哈希: $GIT_COMMIT_HASH"
               KSU_API_VERSION=$(grep -m1 "KSU_VERSION_API :=" kernel/Makefile | awk -F'= ' '{print $2}' | tr -d '[:space:]')
@@ -467,27 +479,33 @@ jobs:
               echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}（main 原生命名，无 qdy 标记）"
             fi
 
-      - name: 🔧 Apply sidtab leak fix #3873 (SukiSU：上下文泄露修复，上游 a810677 移植版)
+      - name: Apply dual-policy sidtab and timing backport (SukiSU)
         if: ${{ env.KSU_TYPE == 'SukiSU' }}
         run: |
           cd kernel_workspace/KernelSU || { echo "::error::找不到 KernelSU 目录"; exit 1; }
-          P="${GITHUB_WORKSPACE}/patches/sukisu_sidtab_fix.patch"
-          if patch -p1 -R --dry-run < "$P" >/dev/null 2>&1; then
-            echo "sidtab 修复已存在，跳过"
-          elif patch -p1 --dry-run < "$P" >/dev/null 2>&1; then
-            patch -p1 < "$P"
-            N=$(grep -c "global_sid" kernel/feature/selinux_hide.c)
-            echo "✅ #3873 sidtab 上下文泄露修复应用成功（global_sid 特征 ${N} 处）"
-          else
-            echo "::error::sidtab 修复无法应用（builtin 基座漂移），中止构建"
-            exit 1
-          fi
+          P="${GITHUB_WORKSPACE}/patches/sukisu_builtin_3877_dual_policy.patch"
+          git apply --check "$P"
+          git apply "$P"
+          python3 "$GITHUB_WORKSPACE/scripts/test_selinux_dual.py" kernel/feature/selinux_hide.c
+          echo 'Applied #3877 dual-policy parsing; #3873 synchronization is included.'
 
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         if: ${{ env.ENABLE_SUSFS == 'true' }}
         run: |
           cd kernel_workspace
-          if [ "${{ env.KSU_TYPE }}" == 'KSUNext' ]; then
+          if [ "$KSU_TYPE" = 'SukiSU' ]; then
+            git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-android15-6.6
+            git -C susfs4ksu fetch --depth=1 origin "$SUSFS_SHA"
+            git -C susfs4ksu checkout --detach "$SUSFS_SHA"
+            test "$(git -C susfs4ksu rev-parse HEAD)" = "$SUSFS_SHA"
+            cp -r susfs4ksu/kernel_patches/fs/. common/fs/
+            cp -r susfs4ksu/kernel_patches/include/. common/include/
+            cd common
+            git apply --check "$GITHUB_WORKSPACE/patches/susfs_6.6.118_timing.patch"
+            git apply "$GITHUB_WORKSPACE/patches/susfs_6.6.118_timing.patch"
+            patch --batch -p1 -F 3 --dry-run < "$GITHUB_WORKSPACE/patches/69_hide_stuff_pinned.patch"
+            patch --batch -p1 -F 3 < "$GITHUB_WORKSPACE/patches/69_hide_stuff_pinned.patch"
+          elif [ "${{ env.KSU_TYPE }}" == 'KSUNext' ]; then
             echo "KSU-Next: 使用 simonpunk 官方 susfs4ksu (gki-android15-6.6, 2026-10-12 适配版)"
             echo "KSU-Next 内核原生自带 susfs 集成：仅应用内核侧 50 补丁，不打 10_enable（与 KSU-Next 树结构不兼容，2026-10-13 实测半 apply 致编译失败）"
             git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu -b gki-android15-6.6
@@ -542,7 +560,11 @@ jobs:
         run: |
           cd kernel_workspace
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          if [ "$ENABLE_KPM" = 'true' ]; then
+            echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          else
+            echo "# CONFIG_KPM is not set" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
           
           if [ "${{ env.KSU_TYPE }}" == 'ReSukiSU' ]; then
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%-Re-TG@qdykernel"' >> ./common/arch/arm64/configs/gki_defconfig
@@ -583,6 +605,11 @@ jobs:
           ESCAPED_SUFFIX=$(printf '%s\n' "$DEFAULT_SUFFIX" | sed 's:[\/&]:\\&:g')
           sudo sed -i "s/-4k/$ESCAPED_SUFFIX/g" ./common/arch/arm64/configs/gki_defconfig
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
+
+      - name: Verify effective SELinux call paths
+        if: ${{ env.KSU_TYPE == 'SukiSU' }}
+        run: |
+          python3 scripts/verify_timing_source.py kernel_workspace/common kernel_workspace/KernelSU
 
       - name: 📥 Start build timer (构建计时开始)
         run: 
@@ -760,11 +787,30 @@ jobs:
           cd kernel_workspace/common/out/arch/arm64/boot
           cp ./Image "./kernel"
 
+      - name: Verify and record candidate build
+        if: ${{ env.KSU_TYPE == 'SukiSU' }}
+        run: |
+          python3 scripts/verify_candidate.py kernel_workspace/common "$ENABLE_KPM" > candidate-verification.json
+          cat candidate-verification.json
+          sha256sum patches/sukisu_builtin_3877_dual_policy.patch patches/susfs_6.6.118_timing.patch patches/69_hide_stuff_pinned.patch > candidate-patches.sha256
+
       - name: 📤 Upload Image (上传 Image)
         uses: actions/upload-artifact@v5
         with:
-         name: kernel_image
-         path: kernel_workspace/common/out/arch/arm64/boot/kernel
+          name: kernel_image
+          path: kernel_workspace/common/out/arch/arm64/boot/kernel
+
+      - name: Upload candidate verification
+        if: ${{ env.KSU_TYPE == 'SukiSU' }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: candidate-verification
+          include-hidden-files: true
+          path: |
+            candidate-verification.json
+            candidate-patches.sha256
+            kernel_workspace/common/out/.config
+            kernel_workspace/common/out/System.map
          
       - name: 📦 Sign boot using AOSP test key (使用AOSP测试密钥签名boot)
         if: ${{ env.ENABLE_SIGNED == 'true' }}

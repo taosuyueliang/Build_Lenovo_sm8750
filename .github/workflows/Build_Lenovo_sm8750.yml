@@ -487,29 +487,21 @@ jobs:
           cd kernel_workspace
           if [ "${{ env.KSU_TYPE }}" == 'KSUNext' ]; then
             echo "KSU-Next: 使用 simonpunk 官方 susfs4ksu (gki-android15-6.6, 2026-10-12 适配版)"
+            echo "KSU-Next 内核原生自带 susfs 集成：仅应用内核侧 50 补丁，不打 10_enable（与 KSU-Next 树结构不兼容，2026-10-13 实测半 apply 致编译失败）"
             git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu -b gki-android15-6.6
             cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
-            cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./common/
             cp -r ./susfs4ksu/kernel_patches/fs/. ./common/fs/
             cp -r ./susfs4ksu/kernel_patches/include/. ./common/include/
             cd ./common
             if patch -p1 -F 3 -R --dry-run < 50_add_susfs_in_gki-android15-6.6.patch >/dev/null 2>&1; then
               echo "50 补丁此前已应用，跳过"
-            elif patch -p1 -F 3 < 50_add_susfs_in_gki-android15-6.6.patch; then
-              echo "50 补丁应用成功"
+            elif patch -p1 -F 3 --dry-run < 50_add_susfs_in_gki-android15-6.6.patch >/dev/null 2>&1; then
+              patch -p1 -F 3 < 50_add_susfs_in_gki-android15-6.6.patch
+              echo "50 补丁干净应用成功"
             else
-              echo "::error::susfs 50 补丁应用失败，中止构建（宁失败不弱配）"
+              echo "::error::susfs 50 补丁无法干净应用，中止构建（宁失败不弱配，禁止半 apply）"
               exit 1
             fi
-            cd ../KernelSU-Next
-            if patch -p1 -F 3 -R --dry-run < ../common/10_enable_susfs_for_ksu.patch >/dev/null 2>&1; then
-              echo "10_enable_susfs_for_ksu 此前已应用（KSU-Next 可能已内置 susfs 集成），跳过"
-            elif patch -p1 -F 3 < ../common/10_enable_susfs_for_ksu.patch; then
-              echo "10_enable_susfs_for_ksu 应用成功"
-            else
-              echo "::warning::10_enable_susfs_for_ksu 无法应用（KSU-Next 树可能已自带集成），继续但需核对 susfs 符号"
-            fi
-            cd ../common
             echo "--- susfs 符号核对 ---"
             grep -rl "susfs" fs/ --include="*.c" 2>/dev/null | head -5 || true
           else

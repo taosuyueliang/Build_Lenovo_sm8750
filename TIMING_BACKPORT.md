@@ -48,9 +48,10 @@ ancestry check alone does not establish that the fix survives integration.
    this target uses the newer braced variant. Guard both reacquisition cases
    and always advance the iterator boundary for skipped mappings. Remove an
    inapplicable OKI-only conditional inside the open-redirect SRCU section.
-5. Vendor the existing auxiliary proc patch to preserve the baseline
-   behavior. Its legacy fuzzy application is preflighted and errors are fatal.
-   The principal SUSFS and timing patches use `git apply --check` with no fuzz.
+5. Rebase the existing auxiliary proc display rules at their intended
+   locations outside the open-redirect SRCU section. A fuzzy match must not
+   insert a jump out of that locked section. The timing, SUSFS, and auxiliary
+   proc patches all use `git apply --check` with no fuzz.
 
 ## Evidence and remaining verification
 

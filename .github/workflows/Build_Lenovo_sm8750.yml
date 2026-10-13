@@ -501,10 +501,10 @@ jobs:
             cp -r susfs4ksu/kernel_patches/fs/. common/fs/
             cp -r susfs4ksu/kernel_patches/include/. common/include/
             cd common
-            git apply --check "$GITHUB_WORKSPACE/patches/susfs_6.6.118_timing.patch"
-            git apply "$GITHUB_WORKSPACE/patches/susfs_6.6.118_timing.patch"
-            patch --batch -p1 -F 3 --dry-run < "$GITHUB_WORKSPACE/patches/69_hide_stuff_pinned.patch"
-            patch --batch -p1 -F 3 < "$GITHUB_WORKSPACE/patches/69_hide_stuff_pinned.patch"
+            git -C "$GITHUB_WORKSPACE" apply --check --directory=kernel_workspace/common "$GITHUB_WORKSPACE/patches/susfs_6.6.118_timing.patch"
+            git -C "$GITHUB_WORKSPACE" apply --verbose --directory=kernel_workspace/common "$GITHUB_WORKSPACE/patches/susfs_6.6.118_timing.patch"
+            git -C "$GITHUB_WORKSPACE" apply --check --directory=kernel_workspace/common "$GITHUB_WORKSPACE/patches/69_hide_stuff_pinned.patch"
+            git -C "$GITHUB_WORKSPACE" apply --verbose --directory=kernel_workspace/common "$GITHUB_WORKSPACE/patches/69_hide_stuff_pinned.patch"
           elif [ "${{ env.KSU_TYPE }}" == 'KSUNext' ]; then
             echo "KSU-Next: 使用 simonpunk 官方 susfs4ksu (gki-android15-6.6, 2026-10-12 适配版)"
             echo "KSU-Next 内核原生自带 susfs 集成：仅应用内核侧 50 补丁，不打 10_enable（与 KSU-Next 树结构不兼容，2026-10-13 实测半 apply 致编译失败）"

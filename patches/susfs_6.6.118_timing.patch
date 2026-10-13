@@ -1265,7 +1265,7 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  static void
  show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
  {
-@@ -275,9 +286,37 @@
+@@ -275,9 +286,38 @@
  
  	if (file) {
  		struct inode *inode = file_inode(vma->vm_file);
@@ -1278,6 +1278,7 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
 +				pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 +				start = vma->vm_start;
 +				end = VMA_PAD_START(vma);
++				__fold_filemap_fixup_entry(&((struct proc_maps_private *)m->private)->iter, &end);
 +
 +				show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
 +				seq_pad(m, ' ');
@@ -1303,7 +1304,7 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  	}
  
  	start = vma->vm_start;
-@@ -892,6 +931,13 @@
+@@ -892,6 +932,13 @@
  	struct vm_area_struct *vma = v;
  	struct mem_size_stats mss;
  
@@ -1317,7 +1318,7 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  	memset(&mss, 0, sizeof(mss));
  
  	if (!vma_pages(vma))
-@@ -955,7 +1001,14 @@
+@@ -955,7 +1002,14 @@
  
  	vma_start = vma->vm_start;
  	do {
@@ -1332,7 +1333,7 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  		last_vma_end = vma->vm_end;
  
  		/*
-@@ -1014,14 +1067,20 @@
+@@ -1014,14 +1068,20 @@
  
  			/* Case 1 and 2 above */
  			if (vma->vm_start >= last_vma_end) {
@@ -1355,7 +1356,7 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  				last_vma_end = vma->vm_end;
  			}
  		}
-@@ -1800,6 +1859,9 @@
+@@ -1800,6 +1860,9 @@
  	while (count && (start_vaddr < end_vaddr)) {
  		int len;
  		unsigned long end;
@@ -1365,7 +1366,7 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  
  		pm.pos = 0;
  		end = (start_vaddr + PAGEMAP_WALK_SIZE) & PAGEMAP_WALK_MASK;
-@@ -1809,7 +1871,15 @@
+@@ -1809,7 +1872,15 @@
  		ret = mmap_read_lock_killable(mm);
  		if (ret)
  			goto out_free;

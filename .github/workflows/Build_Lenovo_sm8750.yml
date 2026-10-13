@@ -483,6 +483,22 @@ jobs:
               echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}-TG@qdykernel"
             fi
 
+      - name: 🔧 Apply upstream timing fix #3877 (SukiSU：上游计时侧信道修复 a85dcbc)
+        if: ${{ env.KSU_TYPE == 'SukiSU' }}
+        run: |
+          cd kernel_workspace/KernelSU || { echo "::error::找不到 KernelSU 目录"; exit 1; }
+          P="${GITHUB_WORKSPACE}/patches/ksu_3877_timing_fix.patch"
+          if patch -p1 -R --dry-run < "$P" >/dev/null 2>&1; then
+            echo "计时修复已存在，跳过"
+          elif patch -p1 --dry-run < "$P" >/dev/null 2>&1; then
+            patch -p1 < "$P"
+            N=$(grep -c "orig_sid_p" kernel/feature/selinux_hide.c)
+            echo "✅ a85dcbc (#3877) 计时修复应用成功，orig_sid_p 特征 ${N} 处"
+          else
+            echo "::error::计时修复无法应用，中止构建"
+            exit 1
+          fi
+
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         if: ${{ env.ENABLE_SUSFS == 'true' }}
         run: |

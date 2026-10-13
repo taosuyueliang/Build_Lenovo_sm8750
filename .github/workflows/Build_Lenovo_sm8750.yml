@@ -12,6 +12,7 @@ on:
         options:
           - 'SukiSU'
           - 'ReSukiSU'
+          - 'KSUNext'
         default: 'ReSukiSU'
         
       kernel_version:
@@ -439,6 +440,14 @@ jobs:
               KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
               echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
               echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
+            elif [ "${{ env.KSU_TYPE }}" == 'KSUNext' ]; then
+              curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/refs/heads/dev/kernel/setup.sh" | bash -s dev
+              cd ./KernelSU-Next
+              KSUNEXT_HASH=$(git rev-parse --short=8 HEAD)
+              KSU_VERSION=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+              echo "KSU-Next dev 提交: $KSUNEXT_HASH ($(git log -1 --format=%cd --date=format:'%F %T' 2>/dev/null))"
+              echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+              echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             else
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
               cd ./KernelSU
@@ -476,14 +485,43 @@ jobs:
         if: ${{ env.ENABLE_SUSFS == 'true' }}
         run: |
           cd kernel_workspace
-          git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-android15-6.6
-          wget https://raw.githubusercontent.com/cctv18/oppo_oplus_realme_sm8750/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
-          cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
-          cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          cd ./common
-          patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
-          patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+          if [ "${{ env.KSU_TYPE }}" == 'KSUNext' ]; then
+            echo "KSU-Next: 使用 simonpunk 官方 susfs4ksu (gki-android15-6.6, 2026-10-12 适配版)"
+            git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu -b gki-android15-6.6
+            cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
+            cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./common/
+            cp -r ./susfs4ksu/kernel_patches/fs/. ./common/fs/
+            cp -r ./susfs4ksu/kernel_patches/include/. ./common/include/
+            cd ./common
+            if patch -p1 -F 3 -R --dry-run < 50_add_susfs_in_gki-android15-6.6.patch >/dev/null 2>&1; then
+              echo "50 补丁此前已应用，跳过"
+            elif patch -p1 -F 3 < 50_add_susfs_in_gki-android15-6.6.patch; then
+              echo "50 补丁应用成功"
+            else
+              echo "::error::susfs 50 补丁应用失败，中止构建（宁失败不弱配）"
+              exit 1
+            fi
+            cd ../KernelSU-Next
+            if patch -p1 -F 3 -R --dry-run < ../common/10_enable_susfs_for_ksu.patch >/dev/null 2>&1; then
+              echo "10_enable_susfs_for_ksu 此前已应用（KSU-Next 可能已内置 susfs 集成），跳过"
+            elif patch -p1 -F 3 < ../common/10_enable_susfs_for_ksu.patch; then
+              echo "10_enable_susfs_for_ksu 应用成功"
+            else
+              echo "::warning::10_enable_susfs_for_ksu 无法应用（KSU-Next 树可能已自带集成），继续但需核对 susfs 符号"
+            fi
+            cd ../common
+            echo "--- susfs 符号核对 ---"
+            grep -rl "susfs" fs/ --include="*.c" 2>/dev/null | head -5 || true
+          else
+            git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-android15-6.6
+            wget https://raw.githubusercontent.com/cctv18/oppo_oplus_realme_sm8750/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
+            cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
+            cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+            cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+            cd ./common
+            patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
+            patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+          fi
           case "${{ env.KERNEL_VERSION }}" in
             6.6.56)
               echo "[INFO] 当前构建内核版本为6.6.56，正在修复 undeclared identifier 'vma' 编译错误"
@@ -491,6 +529,20 @@ jobs:
               sed -i 's/vma = find_vma(mm, start_vaddr);/struct vm_area_struct *vma = find_vma(mm, start_vaddr);/' task_mmu.c
               ;;
           esac
+
+      - name: 🔧 Fix Unicode ignorable code points (零宽字符漏洞修复)
+        run: |
+          cd kernel_workspace
+          curl -fL "https://raw.githubusercontent.com/ITxiao6666/Unicode_bypass_Fix/main/unicode-bypass_fix_5.10-6.12%E9%80%9A%E7%94%A8.patch" -o unicode_fix.patch
+          cd common
+          if patch -p1 -R --dry-run < ../unicode_fix.patch >/dev/null 2>&1; then
+            echo "unicode 修复补丁此前已应用，跳过"
+          elif patch -p1 < ../unicode_fix.patch; then
+            echo "unicode 零宽字符修复应用成功（已知副作用：文件查找性能略降）"
+          else
+            echo "::error::unicode 修复补丁应用失败，中止构建"
+            exit 1
+          fi
 
       - name: 🔧 Set gki_defconfig (设置编译配置) 
         run: |
@@ -609,6 +661,12 @@ jobs:
           LD_PRELOAD=$PRELOAD_LIBS stat ./Makefile
 
           export KBUILD_BUILD_TIMESTAMP="${KERNEL_TIME}"
+          # 身份对齐（2026-10-13）：编译机标识与编译序号，目标与 358 原厂 banner 逐字一致
+          # kleaf@build-host ... #1 SMP PREEMPT Thu Feb 26 02:40:50 UTC 2026
+          export KBUILD_BUILD_USER="kleaf"
+          export KBUILD_BUILD_HOST="build-host"
+          export KBUILD_BUILD_VERSION="1"
+          echo "KBUILD 身份: ${KBUILD_BUILD_USER}@${KBUILD_BUILD_HOST} #${KBUILD_BUILD_VERSION} ${KBUILD_BUILD_TIMESTAMP}"
           
           #在构建内核的同时清除不必要的.NET, Android NDK, Haskell, CodeQL运行库，清理空间且不阻塞后续步骤运行
           sudo rm -rf /usr/share/dotnet &

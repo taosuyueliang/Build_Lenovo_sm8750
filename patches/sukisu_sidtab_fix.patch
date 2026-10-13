@@ -1,0 +1,24 @@
+diff --git a/kernel/feature/selinux_hide.c b/kernel/feature/selinux_hide.c
+index 31b2de8f..62530895 100644
+--- a/kernel/feature/selinux_hide.c
++++ b/kernel/feature/selinux_hide.c
+@@ -293,6 +293,19 @@ int security_context_to_sid_with_policy(struct selinux_policy *policy, const cha
+     if (rc)
+         goto out;
+     // removed: if (rc == -ESTALE)
++
++    /* [2026-10-13] #3873 sidtab leak fix, ported from upstream
++     * tiann/KernelSU@a810677 for the legacy selinux_hide layout:
++     * a context converted through the backup policy must also be
++     * present in the global sidtab, otherwise an app can detect the
++     * hidden policy copy by looking up a used context in the global
++     * sidtab. Sync is done only for backup-policy conversions so the
++     * normal path keeps its original cost (no new timing signal). */
++    if (policy != rcu_access_pointer(selinux_state.policy)) {
++        u32 global_sid;
++        security_context_to_sid(scontext2, scontext_len, &global_sid, gfp_flags);
++    }
++
+     context_destroy(&context);
+ out:
+     kfree(scontext2);

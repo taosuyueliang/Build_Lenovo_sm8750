@@ -451,9 +451,9 @@ jobs:
               echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
               echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             else
-              # 2026-10-13: SukiSU 源改用 main 分支（builtin 为落后血统，缺 #3873/#3877 全部修复线）
-              # main 的 kernel/Makefile 自带版本定义，原 qdy 注入块（含 -TG@qdykernel 标记）不兼容且多余，已移除
-              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s main
+              # 2026-10-13 复盘定案：SukiSU 的 susfs 完整活在 builtin 分支（4/1 重构后 5168273c 一小时即补回）
+              # main 分支 4/1 起无 susfs 符号（ad8949ef 移除）；builtin 的老 selinux_hide 无计时泄漏代码，#3877 无需应用
+              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
               cd ./KernelSU
               GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
               echo "当前提交哈希: $GIT_COMMIT_HASH"
@@ -467,19 +467,19 @@ jobs:
               echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}（main 原生命名，无 qdy 标记）"
             fi
 
-      - name: 🔧 Apply upstream timing fix #3877 (SukiSU：上游计时侧信道修复 a85dcbc)
+      - name: 🔧 Apply sidtab leak fix #3873 (SukiSU：上下文泄露修复，上游 a810677 移植版)
         if: ${{ env.KSU_TYPE == 'SukiSU' }}
         run: |
           cd kernel_workspace/KernelSU || { echo "::error::找不到 KernelSU 目录"; exit 1; }
-          P="${GITHUB_WORKSPACE}/patches/ksu_3877_timing_fix.patch"
+          P="${GITHUB_WORKSPACE}/patches/sukisu_sidtab_fix.patch"
           if patch -p1 -R --dry-run < "$P" >/dev/null 2>&1; then
-            echo "计时修复已存在，跳过"
+            echo "sidtab 修复已存在，跳过"
           elif patch -p1 --dry-run < "$P" >/dev/null 2>&1; then
             patch -p1 < "$P"
-            N=$(grep -c "orig_sid_p" kernel/feature/selinux_hide.c)
-            echo "✅ a85dcbc (#3877) 计时修复应用成功，orig_sid_p 特征 ${N} 处"
+            N=$(grep -c "global_sid" kernel/feature/selinux_hide.c)
+            echo "✅ #3873 sidtab 上下文泄露修复应用成功（global_sid 特征 ${N} 处）"
           else
-            echo "::error::计时修复无法应用，中止构建"
+            echo "::error::sidtab 修复无法应用（builtin 基座漂移），中止构建"
             exit 1
           fi
 

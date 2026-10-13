@@ -159,7 +159,7 @@
 +/*
 + * Backport of tiann/KernelSU a85dcbc (#3877), with the per-policy
 + * validation correction used by BakaSU fa12ffde8. Keep the SUSFS
-+ * seven-argument entry point below; setprocattr needs both results.
++ * six-argument entry point below; setprocattr needs both results.
 + */
 +int ksu_security_context_to_sid_dual(struct selinux_policy *policy,
 +                                    const char *scontext, u32 scontext_len,

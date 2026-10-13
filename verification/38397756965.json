@@ -1,0 +1,52 @@
+{
+  "build_commit": "8acd2c9b036b6bc53928c028808b9f147adaf711",
+  "workflow_run": "https://github.com/taosuyueliang/Build_Lenovo_sm8750/actions/runs/38397756965",
+  "artifact_digest_check": "pass",
+  "image_sha256": "65cbad39dfd63314ceaeda31fb0bd66b91072fe65774b5fecf448b3003d35160",
+  "image_size": 37183200,
+  "banner_equal_to_previous_build": true,
+  "previous_build_markers": {
+    "susfs_strings": 187,
+    "susfs_occurrences": 209,
+    "kpm_strings": 87
+  },
+  "candidate_markers": {
+    "susfs_strings": 187,
+    "susfs_occurrences": 209,
+    "kpm_strings": 87
+  },
+  "sanitizer_case_count": 49,
+  "device_test": "not_performed",
+  "stock_358_comparison": "requires_stock_boot",
+  "verification": {
+    "image_sha256": "65cbad39dfd63314ceaeda31fb0bd66b91072fe65774b5fecf448b3003d35160",
+    "image_size": 37183200,
+    "linux_banners": [
+      "Linux version 6.6.118-android15-8-g350f378eb496-ab14943902-4k (kleaf@build-host) (Android (11368308, +pgo, +bolt, +lto, +mlgo, based on r510928) clang version 18.0.0 (https://android.googlesource.com/toolchain/llvm-project 477610d4d0d988e69dbc3fae4fe86bff3f07f2b5), LLD 18.0.0) #1 SMP PREEMPT Thu Feb 26 02:40:50 UTC 2026"
+    ],
+    "required_effective_config": [
+      "KSU",
+      "KSU_SUSFS",
+      "KSU_SUSFS_SUS_PATH",
+      "KSU_SUSFS_SUS_MOUNT",
+      "KSU_SUSFS_SUS_KSTAT",
+      "KSU_SUSFS_SPOOF_UNAME",
+      "KSU_SUSFS_ENABLE_LOG",
+      "KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS",
+      "KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG",
+      "KSU_SUSFS_OPEN_REDIRECT",
+      "KSU_SUSFS_SUS_MAP",
+      "ARM64_4K_PAGES"
+    ],
+    "kpm_enabled": true,
+    "timing_linked_symbols": true,
+    "device_boot_test": "not_performed",
+    "native_check_timing_test": "not_performed",
+    "stock_358_comparison": "requires_stock_boot"
+  },
+  "test_execution_detail": "49 executions including 32 repeated valid conversions; not 49 distinct device tests",
+  "artifact_links": {
+    "kernel_image": "https://github.com/taosuyueliang/Build_Lenovo_sm8750/actions/runs/38397756965/artifacts/11814111111",
+    "candidate-verification": "https://github.com/taosuyueliang/Build_Lenovo_sm8750/actions/runs/38397756965/artifacts/11814925728"
+  }
+}

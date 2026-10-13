@@ -28,13 +28,13 @@ remain connected to the corrected converter.
 
 The simonpunk SUSFS integration patch at
 `bd7d199ac87808001127e8a6d076832e2938cf0d` removes the upstream dual-policy
-parser and changes the converter back to seven arguments. Therefore a Git
+parser and changes the converter back to six arguments. Therefore a Git
 ancestry check alone does not establish that the fix survives integration.
 
 ## Changes
 
 1. Backport dual-policy parsing and SID synchronization, preserving the
-   seven-argument SUSFS API through a wrapper. The old local sidtab shim is
+   six-argument SUSFS API through a wrapper. The old local sidtab shim is
    superseded; it must not be applied on top. It reparsed a buffer already
    modified by the context tokenizer and ignored the synchronization result.
 2. Convert `setprocattr(current)` once, use the live SID for the transition,
@@ -69,3 +69,32 @@ ancestry check alone does not establish that the fix survives integration.
 
 This is a targeted backport of the known issue, not a claim that all changes
 from every upstream branch have been merged or that all bugs are fixed.
+
+## Successful build: 2026-10-13
+
+- Tested source commit: `8acd2c9b036b6bc53928c028808b9f147adaf711`.
+- [GitHub Actions run 38397756965](https://github.com/taosuyueliang/Build_Lenovo_sm8750/actions/runs/38397756965)
+  completed successfully, including the source and linked-image checks.
+- Inputs: SukiSU, 6.6.118, SUSFS and KPM enabled; ReKernel, ADIOS, BBG,
+  and boot signing disabled; no custom suffix or timestamp.
+- Sanitizers: 49 test executions, including 32 repeated valid conversions;
+  zero outstanding allocations. These are not 49 distinct device tests.
+- Raw kernel: 37,183,200 bytes; SHA256
+  `65cbad39dfd63314ceaeda31fb0bd66b91072fe65774b5fecf448b3003d35160`.
+- Downloaded artifact ZIP digests match GitHub's recorded digests.
+- The complete banner matches the previous successful build byte for byte.
+  Using printable ASCII strings of at least four characters, both images
+  contain 187 SUSFS strings and 87 KPM strings; raw SUSFS occurrences are
+  209 in each. Counts depend on the method and are not functional tests.
+- The inherited, unrelated ZSTD optimization patch still reports one
+  rejected portability-macro hunk. This build is not evidence that every
+  inherited optimization patch applied cleanly.
+
+Machine-readable results are in `verification/38397756965.json`. The
+`kernel_image` artifact is a raw kernel, **not a flashable boot.img**.
+The `candidate-verification` artifact contains the effective configuration,
+System.map, and hashes of the exact patches used for this run.
+
+The small documentation/comment correction after this tested commit does
+not change kernel behavior. Stock-358 metadata, a testkey-signed boot image,
+successful device boot, and Native Check results remain unverified.

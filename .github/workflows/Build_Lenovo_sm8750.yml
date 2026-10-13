@@ -451,7 +451,8 @@ jobs:
               echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
               echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
             else
-              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
+              # 2026-10-13: builtin 分支已落后（selinux_hide 为 790 行古老血统，缺 #3873/#3877 全部修复线），改用 main 分支构建
+              curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s main
               cd ./KernelSU
               GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
               echo "当前提交哈希: $GIT_COMMIT_HASH"

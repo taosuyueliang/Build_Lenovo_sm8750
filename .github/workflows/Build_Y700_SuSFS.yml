@@ -1,0 +1,170 @@
+name: Build_Y700_SuSFS
+permissions:
+  contents: read
+  actions: write
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_version:
+        description: "内核版本"
+        required: false
+        type: choice
+        options:
+          - '6.6.118'
+        default: '6.6.118'
+
+jobs:
+  build:
+    name: Y700_SuSFS_${{ github.event.inputs.kernel_version }}
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_VERSION: ${{ github.event.inputs.kernel_version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: 版本配置（对齐 358 原厂五字段）
+        run: |
+          case "${{ env.KERNEL_VERSION }}" in
+            "6.6.118")
+              echo "os_patch_level=2026-01" >> $GITHUB_ENV
+              echo "DEFAULT_SUFFIX=-android15-8-g350f378eb496-ab14943902-4k" >> $GITHUB_ENV
+              echo "KERNEL_TIME=Thu Feb 26 02:40:50 UTC 2026" >> $GITHUB_ENV
+              ;;
+          esac
+
+      - name: 环境与源码初始化
+        run: |
+          rm -rf kernel_workspace && mkdir kernel_workspace && cd kernel_workspace
+          sudo apt-mark hold firefox libc-bin &&
+          sudo apt purge man-db &&
+          sudo rm -rf /var/lib/man-db/auto-update &&
+          sudo apt update &&
+          sudo apt-get install -y --no-install-recommends binutils python-is-python3 libssl-dev libelf-dev dos2unix p7zip-full zstd
+          aria2c -s16 -x16 -k1M "https://github.com/showdo/Build_Lenovo_sm8750/releases/download/common/${{ env.os_patch_level }}.tar.gz" -o common.tar.gz && \
+          mkdir -p common && tar -xzf common.tar.gz -C common && rm -f common.tar.gz
+          mkdir -p clang18 &&
+          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/clang-r510928.zip -o clang.zip &&
+          unzip -q clang.zip -d clang18 && rm -rf clang.zip
+          aria2c -s16 -x16 -k1M https://github.com/cctv18/oneplus_sm8650_toolchain/releases/download/LLVM-Clang18-r510928/build-tools.zip -o build-tools.zip &&
+          unzip -q build-tools.zip && rm -rf build-tools.zip
+          rm common/android/abi_gki_protected_exports_* || true
+          for f in common/scripts/setlocalversion; do
+            sed -i 's/ -dirty//g' "$f"
+            sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
+          done
+
+      - name: 集成官方 KernelSU（最新 release tag，susfs 官方对标基座）
+        run: |
+          cd kernel_workspace
+          # susfs 官方 README 要求：必须用官方 KernelSU 的 tag 版本；setup.sh 无参 = 检出最新 tag
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/refs/heads/main/kernel/setup.sh" | bash
+          cd KernelSU
+          KSU_TAG=$(git describe --tags)
+          KSU_HASH=$(git rev-parse --short=8 HEAD)
+          echo "KernelSU: tag=$KSU_TAG hash=$KSU_HASH"
+          if git merge-base --is-ancestor a85dcbcf HEAD; then
+            echo "✅ 计时修复 a85dcbc (#3877) 在本 tag 内"
+          else
+            echo "::error::当前 tag 不含计时修复 a85dcbc，中止"
+            exit 1
+          fi
+
+      - name: 集成 susfs（官方 gki-android15-6.6 配方，严格模式）
+        run: |
+          cd kernel_workspace
+          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu -b gki-android15-6.6
+          # 1) KSU 侧：10_enable 在 KernelSU 目录（官方 README 第 7 步）
+          cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
+          cd ./KernelSU
+          if patch -p1 -R --dry-run < 10_enable_susfs_for_ksu.patch >/dev/null 2>&1; then
+            echo "10_enable 已应用，跳过"
+          elif patch -p1 --dry-run < 10_enable_susfs_for_ksu.patch >/dev/null 2>&1; then
+            patch -p1 < 10_enable_susfs_for_ksu.patch && echo "✅ 10_enable 干净应用"
+          else
+            echo "::error::10_enable 无法应用（基座漂移），中止（宁失败不弱配）"
+            exit 1
+          fi
+          # 2) 内核侧：50 补丁 + fs/ + include/
+          cd ..
+          cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
+          cp -r ./susfs4ksu/kernel_patches/fs/. ./common/fs/
+          cp -r ./susfs4ksu/kernel_patches/include/. ./common/include/
+          cd ./common
+          if patch -p1 -R --dry-run < 50_add_susfs_in_gki-android15-6.6.patch >/dev/null 2>&1; then
+            echo "50 补丁已应用，跳过"
+          elif patch -p1 -F 3 --dry-run < 50_add_susfs_in_gki-android15-6.6.patch >/dev/null 2>&1; then
+            patch -p1 -F 3 < 50_add_susfs_in_gki-android15-6.6.patch && echo "✅ 50 补丁干净应用"
+          else
+            echo "::error::50 补丁无法应用，中止"
+            exit 1
+          fi
+          echo "--- Kconfig 符号核对（应出现 KSU_SUSFS 系列）---"
+          grep -E "config KSU_SUSFS" ../KernelSU/kernel/Kconfig | head -12
+
+      - name: 零宽字符漏洞修复
+        run: |
+          cd kernel_workspace
+          curl -fL "https://raw.githubusercontent.com/ITxiao6666/Unicode_bypass_Fix/main/unicode-bypass_fix_5.10-6.12%E9%80%9A%E7%94%A8.patch" -o unicode_fix.patch
+          cd common
+          if patch -p1 -R --dry-run < ../unicode_fix.patch >/dev/null 2>&1; then
+            echo "unicode 修复已应用，跳过"
+          elif patch -p1 < ../unicode_fix.patch; then
+            echo "✅ unicode 零宽字符修复应用成功"
+          else
+            echo "::error::unicode 修复无法应用，中止"
+            exit 1
+          fi
+
+      - name: defconfig（KSU + susfs 全特性，无 KPM）
+        run: |
+          cd kernel_workspace
+          cat >> ./common/arch/arm64/configs/gki_defconfig <<'EOF'
+          CONFIG_KSU=y
+          CONFIG_KSU_SUSFS=y
+          CONFIG_KSU_SUSFS_SUS_PATH=y
+          CONFIG_KSU_SUSFS_SUS_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
+          CONFIG_KSU_SUSFS_SUS_KSTAT=y
+          CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
+          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+          CONFIG_KSU_SUSFS_ENABLE_LOG=y
+          CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
+          CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+          CONFIG_KSU_SUSFS_SUS_MAP=y
+          CONFIG_TMPFS_XATTR=y
+          CONFIG_TMPFS_POSIX_ACL=y
+          CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y
+          EOF
+          sudo sed -i 's/check_defconfig//' ./common/build.config.gki
+
+      - name: 内核名对齐原厂
+        run: |
+          cd kernel_workspace
+          ESCAPED_SUFFIX=$(printf '%s\n' "$DEFAULT_SUFFIX" | sed 's:[\/&]:\\&:g')
+          sudo sed -i "s/-4k/$ESCAPED_SUFFIX/g" ./common/arch/arm64/configs/gki_defconfig
+          sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
+
+      - name: 构建内核（KBUILD 身份五字段对齐）
+        run: |
+          WORKDIR="$(pwd)"
+          export PATH="$WORKDIR/kernel_workspace/clang18/bin:$PATH"
+          export PATH="$WORKDIR/kernel_workspace/build-tools/bin:$PATH"
+          cd kernel_workspace/common
+          export KBUILD_BUILD_TIMESTAMP="${KERNEL_TIME}"
+          export KBUILD_BUILD_USER="kleaf"
+          export KBUILD_BUILD_HOST="build-host"
+          export KBUILD_BUILD_VERSION="1"
+          echo "KBUILD 身份: ${KBUILD_BUILD_USER}@${KBUILD_BUILD_HOST} #${KBUILD_BUILD_VERSION} ${KBUILD_BUILD_TIMESTAMP}"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL &
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig &&
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error Image
+
+      - name: 上传内核
+        uses: actions/upload-artifact@v5
+        with:
+          name: y700_susfs_kernel
+          path: kernel_workspace/common/out/arch/arm64/boot/Image

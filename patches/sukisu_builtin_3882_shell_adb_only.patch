@@ -1,0 +1,276 @@
+diff --git a/kernel/feature/shell_su_adb_only.c b/kernel/feature/shell_su_adb_only.c
+new file mode 100644
+index 0000000..cc714d6
+--- /dev/null
++++ b/kernel/feature/shell_su_adb_only.c
+@@ -0,0 +1,89 @@
++#include <linux/cred.h>
++#include <linux/rcupdate.h>
++#include <linux/sched.h>
++#include <linux/static_key.h>
++#include <linux/types.h>
++
++#include "feature/shell_su_adb_only.h"
++#include "policy/feature.h"
++#include "selinux/selinux.h"
++
++#include "klog.h" // IWYU pragma: keep
++
++// Apps that manage to run code as the shell uid (e.g. through a system service
++// bug) would otherwise inherit the root grant of com.android.shell. When this
++// is enabled, a granted shell may only get root if it was spawned by adbd, i.e.
++// it is a real `adb shell` session, or by a KernelSU root process (e.g. adb
++// daemons provided by modules such as altdb). The latter is no escalation, as
++// only processes already granted root by KernelSU run in the ksu domain.
++// Y700 backport: enabled at boot; no Manager update is required.
++static DEFINE_STATIC_KEY_TRUE(ksu_shell_su_adb_only);
++
++// Deny instead of walking an unbounded chain of ancestors
++#define MAX_ANCESTOR_DEPTH 128
++
++static bool has_trusted_ancestor(void)
++{
++    struct task_struct *t;
++    int depth = 0;
++    bool found = false;
++
++    rcu_read_lock();
++    // Stop at init: orphans reparented to it are not attached to a session any more
++    for (t = current; t->pid > 1 && depth < MAX_ANCESTOR_DEPTH; t = rcu_dereference(t->real_parent), depth++) {
++        const struct cred *cred = __task_cred(t);
++        if (is_adbd(cred) || is_task_ksu_domain(cred)) {
++            found = true;
++            break;
++        }
++    }
++    rcu_read_unlock();
++
++    return found;
++}
++
++bool ksu_shell_su_allowed_for_current(void)
++{
++    if (!static_branch_likely(&ksu_shell_su_adb_only)) {
++        return true;
++    }
++
++    return has_trusted_ancestor();
++}
++
++static int shell_su_adb_only_feature_get(u64 *value)
++{
++    *value = static_key_enabled(&ksu_shell_su_adb_only) ? 1 : 0;
++    return 0;
++}
++
++static int shell_su_adb_only_feature_set(u64 value)
++{
++    bool enable = value != 0;
++    if (enable) {
++        static_key_enable(&ksu_shell_su_adb_only.key);
++    } else {
++        static_key_disable(&ksu_shell_su_adb_only.key);
++    }
++    pr_info("shell_su_adb_only: set to %d\n", enable);
++    return 0;
++}
++
++static const struct ksu_feature_handler shell_su_adb_only_handler = {
++    .feature_id = KSU_FEATURE_SHELL_SU_ADB_ONLY,
++    .name = "shell_su_adb_only",
++    .get_handler = shell_su_adb_only_feature_get,
++    .set_handler = shell_su_adb_only_feature_set,
++};
++
++void __init ksu_shell_su_adb_only_init(void)
++{
++    if (ksu_register_feature_handler(&shell_su_adb_only_handler)) {
++        pr_err("Failed to register shell_su_adb_only feature handler\n");
++    }
++}
++
++void __exit ksu_shell_su_adb_only_exit(void)
++{
++    ksu_unregister_feature_handler(KSU_FEATURE_SHELL_SU_ADB_ONLY);
++}
+diff --git a/kernel/feature/shell_su_adb_only.h b/kernel/feature/shell_su_adb_only.h
+new file mode 100644
+index 0000000..b8b2f0e
+--- /dev/null
++++ b/kernel/feature/shell_su_adb_only.h
+@@ -0,0 +1,15 @@
++#ifndef __KSU_H_SHELL_SU_ADB_ONLY
++#define __KSU_H_SHELL_SU_ADB_ONLY
++
++#include <linux/types.h>
++
++// Extra check for current running as shell, it never grants root by itself:
++// shell still has to be allowed by the allowlist. Always true when the feature
++// is disabled; otherwise current must descend from adbd or a ksu domain process.
++bool ksu_shell_su_allowed_for_current(void);
++
++void ksu_shell_su_adb_only_init(void);
++
++void ksu_shell_su_adb_only_exit(void);
++
++#endif
+diff --git a/kernel/include/uapi/feature.h b/kernel/include/uapi/feature.h
+index e1c9258..ba3dd2a 100644
+--- a/kernel/include/uapi/feature.h
++++ b/kernel/include/uapi/feature.h
+@@ -10,6 +10,9 @@ enum ksu_feature_id {
+     KSU_FEATURE_SELINUX_HIDE = 4,
+ #endif
+ 
++    // Leave id 5 unused: upstream previously persisted webview_zygote_umount.
++    KSU_FEATURE_SHELL_SU_ADB_ONLY = 6,
++
+     KSU_FEATURE_MAX
+ };
+ 
+diff --git a/kernel/ksu.c b/kernel/ksu.c
+index ba495d5..ebe04c5 100644
+--- a/kernel/ksu.c
++++ b/kernel/ksu.c
+@@ -30,6 +30,7 @@
+ #include "feature/kernel_umount.h"
+ #include "feature/sucompat.h"
+ #include "feature/sulog.h"
++#include "feature/shell_su_adb_only.h"
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+ #include "feature/selinux_hide.h"
+ #endif
+@@ -81,6 +82,7 @@
+ #include "feature/kernel_umount.c"
+ #include "feature/sucompat.c"
+ #include "feature/sulog.c"
++#include "feature/shell_su_adb_only.c"
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+ #include "feature/selinux_hide.c"
+ #endif
+@@ -133,6 +135,8 @@ int __init kernelsu_init(void)
+ 
+     ksu_feature_init();
+ 
++    ksu_shell_su_adb_only_init();
++
+     ksu_supercalls_init();
+ 
+     ksu_lsm_hook_init();
+diff --git a/kernel/policy/allowlist.c b/kernel/policy/allowlist.c
+index 70d6a33..da3cff3 100644
+--- a/kernel/policy/allowlist.c
++++ b/kernel/policy/allowlist.c
+@@ -241,7 +241,7 @@ bool __ksu_is_allow_uid(uid_t uid)
+     return false;
+ }
+ 
+-bool __ksu_is_allow_uid_for_current(uid_t uid)
++bool ksu_is_uid_granted_root(uid_t uid)
+ {
+     if (unlikely(uid == 0)) {
+         // already root, but only allow our domain.
+@@ -250,6 +250,14 @@ bool __ksu_is_allow_uid_for_current(uid_t uid)
+     return __ksu_is_allow_uid(uid);
+ }
+ 
++bool __ksu_is_allow_uid_for_current(uid_t uid)
++{
++    if (unlikely(uid == SHELL_UID) && !ksu_shell_su_allowed_for_current()) {
++        return false;
++    }
++    return ksu_is_uid_granted_root(uid);
++}
++
+ bool ksu_uid_should_umount(uid_t uid)
+ {
+     struct app_profile *profile;
+diff --git a/kernel/policy/allowlist.h b/kernel/policy/allowlist.h
+index 9b08942..8dca242 100644
+--- a/kernel/policy/allowlist.h
++++ b/kernel/policy/allowlist.h
+@@ -20,7 +20,10 @@ void ksu_show_allow_list(void);
+ bool __ksu_is_allow_uid(uid_t uid);
+ #define ksu_is_allow_uid(uid) unlikely(__ksu_is_allow_uid(uid))
+ 
+-// Check if the uid is in allow list, or current is ksu domain root
++// Grant-state query only; use ksu_is_allow_uid_for_current() to authorize.
++bool ksu_is_uid_granted_root(uid_t uid);
++
++// Grant state plus restrictions on current, including shell ancestry.
+ bool __ksu_is_allow_uid_for_current(uid_t uid);
+ #define ksu_is_allow_uid_for_current(uid) unlikely(__ksu_is_allow_uid_for_current(uid))
+ 
+diff --git a/kernel/selinux/selinux.c b/kernel/selinux/selinux.c
+index 004c61c..8c6d215 100644
+--- a/kernel/selinux/selinux.c
++++ b/kernel/selinux/selinux.c
+@@ -21,6 +21,7 @@ bool __maybe_unused is_ksu_transition(const struct task_security_struct *old_tse
+ static u32 cached_su_sid __read_mostly = 0;
+ static u32 cached_zygote_sid __read_mostly = 0;
+ static u32 cached_init_sid __read_mostly = 0;
++static u32 cached_adbd_sid __read_mostly = 0;
+ u32 ksu_file_sid __read_mostly = 0;
+ 
+ static int transive_to_domain(const char *domain, struct cred *cred, bool clear_exec_sid)
+@@ -156,6 +157,14 @@ void cache_sid(void)
+         pr_info("Cached init SID: %u\n", cached_init_sid);
+     }
+ 
++    err = security_secctx_to_secid(ADBD_CONTEXT, strlen(ADBD_CONTEXT), &cached_adbd_sid);
++    if (err) {
++        pr_warn("Failed to cache adbd SID: %d\n", err);
++        cached_adbd_sid = 0;
++    } else {
++        pr_info("Cached adbd SID: %u\n", cached_adbd_sid);
++    }
++
+     err = security_secctx_to_secid(KSU_FILE_CONTEXT, strlen(KSU_FILE_CONTEXT), &ksu_file_sid);
+     if (err) {
+         pr_warn("Failed to cache ksu_file SID: %d\n", err);
+@@ -219,6 +228,11 @@ bool is_init(const struct cred *cred)
+     return is_sid_match(cred, cached_init_sid, INIT_CONTEXT);
+ }
+ 
++bool is_adbd(const struct cred *cred)
++{
++    return is_sid_match(cred, cached_adbd_sid, ADBD_CONTEXT);
++}
++
+ void escape_to_root_for_adb_root(void)
+ {
+     struct cred *cred = prepare_creds();
+diff --git a/kernel/selinux/selinux.h b/kernel/selinux/selinux.h
+index 011e03b..91dccc6 100644
+--- a/kernel/selinux/selinux.h
++++ b/kernel/selinux/selinux.h
+@@ -12,6 +12,7 @@
+ #define KSU_FILE_CONTEXT "u:object_r:" KERNEL_SU_FILE ":s0"
+ #define ZYGOTE_CONTEXT "u:r:zygote:s0"
+ #define INIT_CONTEXT "u:r:init:s0"
++#define ADBD_CONTEXT "u:r:adbd:s0"
+ 
+ void setup_selinux(const char *, struct cred *);
+ 
+@@ -29,6 +30,8 @@ bool is_zygote(const struct cred *cred);
+ 
+ bool is_init(const struct cred *cred);
+ 
++bool is_adbd(const struct cred *cred);
++
+ void apply_kernelsu_rules(void);
+ 
+ int handle_sepolicy(void __user *user_data, u64 data_len);
+diff --git a/kernel/supercall/dispatch.c b/kernel/supercall/dispatch.c
+index bf26618..8c37665 100644
+--- a/kernel/supercall/dispatch.c
++++ b/kernel/supercall/dispatch.c
+@@ -250,7 +250,7 @@ static int do_uid_granted_root(void __user *arg)
+         return -EFAULT;
+     }
+ 
+-    cmd.granted = ksu_is_allow_uid_for_current(cmd.uid);
++    cmd.granted = ksu_is_uid_granted_root(cmd.uid);
+ 
+     if (copy_to_user(arg, &cmd, sizeof(cmd))) {
+         pr_err("uid_granted_root: copy_to_user failed\n");

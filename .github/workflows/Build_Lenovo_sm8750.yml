@@ -489,6 +489,16 @@ jobs:
           python3 "$GITHUB_WORKSPACE/scripts/test_selinux_dual.py" kernel/feature/selinux_hide.c
           echo 'Applied #3877 dual-policy parsing; #3873 synchronization is included.'
 
+      - name: Restrict shell root to trusted ADB sessions by default (SukiSU)
+        if: ${{ env.KSU_TYPE == 'SukiSU' }}
+        run: |
+          cd kernel_workspace/KernelSU
+          P="$GITHUB_WORKSPACE/patches/sukisu_builtin_3882_shell_adb_only.patch"
+          git apply --check "$P"
+          git apply "$P"
+          python3 "$GITHUB_WORKSPACE/scripts/test_shell_adb_only.py" .
+          echo 'Applied KernelSU #3882; shell_su_adb_only (id=6) defaults ON; existing grant still required.'
+
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         if: ${{ env.ENABLE_SUSFS == 'true' }}
         run: |
@@ -610,6 +620,7 @@ jobs:
         if: ${{ env.KSU_TYPE == 'SukiSU' }}
         run: |
           python3 scripts/verify_timing_source.py kernel_workspace/common kernel_workspace/KernelSU
+          python3 scripts/test_shell_adb_only.py kernel_workspace/KernelSU
 
       - name: 📥 Start build timer (构建计时开始)
         run: 
@@ -792,7 +803,7 @@ jobs:
         run: |
           python3 scripts/verify_candidate.py kernel_workspace/common "$ENABLE_KPM" > candidate-verification.json
           cat candidate-verification.json
-          sha256sum patches/sukisu_builtin_3877_dual_policy.patch patches/susfs_6.6.118_timing.patch patches/69_hide_stuff_pinned.patch > candidate-patches.sha256
+          sha256sum patches/sukisu_builtin_3877_dual_policy.patch patches/sukisu_builtin_3882_shell_adb_only.patch patches/susfs_6.6.118_timing.patch patches/69_hide_stuff_pinned.patch > candidate-patches.sha256
 
       - name: 📤 Upload Image (上传 Image)
         uses: actions/upload-artifact@v5

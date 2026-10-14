@@ -51,3 +51,33 @@ It also checks the effective SUSFS/KPM configuration and baseline banner.
 The CI artifact is a raw kernel. It must be repacked into the verified
 ZUXOS 1.5.10.358 stock boot and signed separately. Device startup and real
 shell authorization tests remain pending until tested on the tablet.
+
+## Verified delivery: 2026-10-14
+
+- Built source: `5ab7492205918fc8901b074355f0f263734e613e`.
+- [Actions run 38529481436](https://github.com/taosuyueliang/Build_Lenovo_sm8750/actions/runs/38529481436)
+  completed successfully. The new host test passed 32 checks per execution;
+  the existing converter test passed 49 executions, including repeats.
+- The emitted static key starts at count **1**, Image offset 36,463,616.
+- Effective `.config` is identical to the previous timing-fix build.
+  Printable-string counts remain 187 SUSFS and 87 KPM; these are presence
+  checks, not device functionality tests.
+- Raw kernel SHA256:
+  `683cf41553a8bb3ea340000f1e5a598c5463f3243ec20f6a9972f0303fc75260`.
+- Repacked with the uploaded stock-358 boot, verified SHA256
+  `e7b3a286871788f0651ec6c62e7b086b88196968acc5462c42aba71136a1ef71`.
+  The complete kernel banner and original AVB metadata were preserved.
+- Final boot SHA256:
+  `d0c95937f5f3dff8c7acbfd04e41dd232d0030e1635af9ddc74293a3d8f81777`.
+  Size: 100,663,296 bytes. Outer AVB and both GKI certificates were resigned
+  using the AOSP RSA4096 testkey and independently verified with avbtool.
+  magiskboot extraction also reproduced the exact compiled kernel.
+- The CI artifact remains an unsigned **raw kernel**. The separately
+  delivered `Y700_358_ADBOnly_ON_testkey_20261014.zip` contains the signed
+  `boot.img`, evidence, source patches and `repack_boot358.py`.
+
+Full evidence is in `verification/38529481436.json`. Device startup, the
+new restriction, SUSFS UI behavior and Native Check remain untested on
+hardware. The inherited ZSTD patch rejection and existing SUSFS compiler
+warnings remain in the baseline; this result does not claim a warning-free
+build or that all inherited optimization patches applied.

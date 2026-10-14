@@ -96,5 +96,7 @@ The `candidate-verification` artifact contains the effective configuration,
 System.map, and hashes of the exact patches used for this run.
 
 The small documentation/comment correction after this tested commit does
-not change kernel behavior. Stock-358 metadata, a testkey-signed boot image,
-successful device boot, and Native Check results remain unverified.
+not change kernel behavior. Subsequent stock-358 repacking and testkey
+verification, including the default-on shell restriction added on October
+14, are recorded in [SHELL_ADB_ONLY.md](SHELL_ADB_ONLY.md). Successful device
+boot and Native Check results remain unverified.

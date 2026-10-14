@@ -1,0 +1,329 @@
+{
+  "source_commit": "5ab7492205918fc8901b074355f0f263734e613e",
+  "build_run": "https://github.com/taosuyueliang/Build_Lenovo_sm8750/actions/runs/38529481436",
+  "build_conclusion": "success",
+  "build": {
+    "image_sha256": "683cf41553a8bb3ea340000f1e5a598c5463f3243ec20f6a9972f0303fc75260",
+    "image_size": 37183200,
+    "linux_banners": [
+      "Linux version 6.6.118-android15-8-g350f378eb496-ab14943902-4k (kleaf@build-host) (Android (11368308, +pgo, +bolt, +lto, +mlgo, based on r510928) clang version 18.0.0 (https://android.googlesource.com/toolchain/llvm-project 477610d4d0d988e69dbc3fae4fe86bff3f07f2b5), LLD 18.0.0) #1 SMP PREEMPT Thu Feb 26 02:40:50 UTC 2026"
+    ],
+    "required_effective_config": [
+      "KSU",
+      "KSU_SUSFS",
+      "KSU_SUSFS_SUS_PATH",
+      "KSU_SUSFS_SUS_MOUNT",
+      "KSU_SUSFS_SUS_KSTAT",
+      "KSU_SUSFS_SPOOF_UNAME",
+      "KSU_SUSFS_ENABLE_LOG",
+      "KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS",
+      "KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG",
+      "KSU_SUSFS_OPEN_REDIRECT",
+      "KSU_SUSFS_SUS_MAP",
+      "ARM64_4K_PAGES"
+    ],
+    "kpm_enabled": true,
+    "timing_linked_symbols": true,
+    "device_boot_test": "not_performed",
+    "shell_su_adb_only": {
+      "upstream_commit": "0a1f3ff71719fa2d6ec15f5568dac27fdb957fcc",
+      "feature_id": 6,
+      "default_enabled": true,
+      "static_key_image_offset": 36463616,
+      "static_key_initial_count": 1,
+      "device_authorization_test": "not_performed"
+    },
+    "native_check_timing_test": "not_performed",
+    "stock_358_comparison": "requires_stock_boot"
+  },
+  "comparison": {
+    "previous_kernel_sha256": "65cbad39dfd63314ceaeda31fb0bd66b91072fe65774b5fecf448b3003d35160",
+    "new_kernel_sha256": "683cf41553a8bb3ea340000f1e5a598c5463f3243ec20f6a9972f0303fc75260",
+    "effective_config_identical": true,
+    "ascii_strings_min_4_case_insensitive": {
+      "previous": {
+        "SUSFS": 187,
+        "KPM": 87
+      },
+      "new": {
+        "SUSFS": 187,
+        "KPM": 87
+      }
+    },
+    "official_sukisu_manager_certificate_hash_present": true,
+    "patch_digests_match_working_branch": true
+  },
+  "artifact_receipts": [
+    {
+      "name": "kernel_image",
+      "id": 11878070374,
+      "bytes": 15592743,
+      "sha256": "642dffa56ecb66197d3b47fccdb3c492c8b548e337bcf1d89d3421289d82f6e0",
+      "github_digest_verified": true
+    },
+    {
+      "name": "candidate-verification",
+      "id": 11877388008,
+      "bytes": 1129162,
+      "sha256": "ca3fe89af9703ff342f81f29c5c6336b9f8a6ce1a2aace9d3af3403ae43e6f06",
+      "github_digest_verified": true
+    }
+  ],
+  "signed_boot": {
+    "target": "Lenovo TB322FC / ZUXOS 1.5.10.358",
+    "source_commit": "5ab7492205918fc8901b074355f0f263734e613e",
+    "build_run": "https://github.com/taosuyueliang/Build_Lenovo_sm8750/actions/runs/38529481436",
+    "signer_repository_commit": "0afc0203d9e28b37499f895bf1d4cf4e2f9c661a",
+    "input_boot_sha256": "e7b3a286871788f0651ec6c62e7b086b88196968acc5462c42aba71136a1ef71",
+    "kernel_sha256": "683cf41553a8bb3ea340000f1e5a598c5463f3243ec20f6a9972f0303fc75260",
+    "output_boot_sha256": "d0c95937f5f3dff8c7acbfd04e41dd232d0030e1635af9ddc74293a3d8f81777",
+    "output_boot_bytes": 100663296,
+    "output_filename": "boot.img",
+    "avbtool_sha256": "7238c0061f28bcc25a3b775fa4df67d6ca92e0e85b1aed9f3e1c610e2e02757e",
+    "kernel_bytes": 37183200,
+    "stock_declared_kernel_bytes": 36731392,
+    "stock_declared_kernel_sha256": "55d1056dd3d11e8cb5ab069a6ccb041731a5d03daadcca6d611fe1f8b3952b05",
+    "header_version": 4,
+    "header_size": 1584,
+    "header_os_version": 0,
+    "header_signature_size": 0,
+    "ramdisk_bytes": 0,
+    "boot_header_equal_except_kernel_size": true,
+    "full_kernel_equal_to_build_artifact": true,
+    "full_banner_equal_to_uploaded_boot": true,
+    "linux_banners": [
+      "Linux version 6.6.118-android15-8-g350f378eb496-ab14943902-4k (kleaf@build-host) (Android (11368308, +pgo, +bolt, +lto, +mlgo, based on r510928) clang version 18.0.0 (https://android.googlesource.com/toolchain/llvm-project 477610d4d0d988e69dbc3fae4fe86bff3f07f2b5), LLD 18.0.0) #1 SMP PREEMPT Thu Feb 26 02:40:50 UTC 2026"
+    ],
+    "gki_certificate_area_bytes": 16384,
+    "gki_certificates_resigned_and_verified": true,
+    "outer_avb_verified_with_expected_testkey": true,
+    "preserved_avb_fields": [
+      "algorithm",
+      "rollback_index",
+      "rollback_index_location",
+      "flags",
+      "release_string",
+      "required_libavb_version",
+      "partition_name",
+      "hash_algorithm",
+      "hash_flags",
+      "salt",
+      "properties"
+    ],
+    "input_avb": {
+      "algorithm": "SHA256_RSA4096",
+      "public_key_sha1": "8fcb864f11f53ed11284615fb67685522085d3a2",
+      "rollback_index": 1738713600,
+      "rollback_index_location": 0,
+      "flags": 0,
+      "release_string": "avbtool 1.3.0",
+      "required_libavb_version": [
+        1,
+        0
+      ],
+      "partition_name": "boot",
+      "hash_algorithm": "sha256",
+      "hash_flags": 0,
+      "salt": "55d1056dd3d11e8cb5ab069a6ccb041731a5d03daadcca6d611fe1f8b3952b05",
+      "hashed_image_size": 36753408,
+      "digest": "378e777f6c18d28ec46d031e100d44bbbdf69c6a9727a7874f7edb7c7bd1c25c",
+      "properties": [
+        [
+          "com.android.build.boot.os_version",
+          "15"
+        ],
+        [
+          "com.android.build.boot.fingerprint",
+          "Lenovo/TB322FC_PRC/TB322FC:16/BQ2A.250610.001-BP2A.250605.031.A3/ZUXOS_1.5.10.358_260910_PRC:user/release-keys"
+        ],
+        [
+          "com.android.build.boot.security_patch",
+          "2025-02-05"
+        ]
+      ]
+    },
+    "output_avb": {
+      "algorithm": "SHA256_RSA4096",
+      "public_key_sha1": "2597c218aae470a130f61162feaae70afd97f011",
+      "rollback_index": 1738713600,
+      "rollback_index_location": 0,
+      "flags": 0,
+      "release_string": "avbtool 1.3.0",
+      "required_libavb_version": [
+        1,
+        0
+      ],
+      "partition_name": "boot",
+      "hash_algorithm": "sha256",
+      "hash_flags": 0,
+      "salt": "55d1056dd3d11e8cb5ab069a6ccb041731a5d03daadcca6d611fe1f8b3952b05",
+      "hashed_image_size": 37203968,
+      "digest": "14f315fa76f11d6ad9005ebdb3c48ecb4d8f6933eb682cc5bb95552208123372",
+      "properties": [
+        [
+          "com.android.build.boot.os_version",
+          "15"
+        ],
+        [
+          "com.android.build.boot.fingerprint",
+          "Lenovo/TB322FC_PRC/TB322FC:16/BQ2A.250610.001-BP2A.250605.031.A3/ZUXOS_1.5.10.358_260910_PRC:user/release-keys"
+        ],
+        [
+          "com.android.build.boot.security_patch",
+          "2025-02-05"
+        ]
+      ]
+    },
+    "input_gki_certificates": [
+      {
+        "algorithm": "SHA256_RSA4096",
+        "public_key_sha1": "b42c87bedcf600d7bebe3dbade2444e9724c3159",
+        "rollback_index": 0,
+        "rollback_index_location": 0,
+        "flags": 0,
+        "release_string": "avbtool 1.3.0",
+        "required_libavb_version": [
+          1,
+          0
+        ],
+        "partition_name": "boot",
+        "hash_algorithm": "sha256",
+        "hash_flags": 0,
+        "salt": "d00df00d",
+        "hashed_image_size": 36737024,
+        "digest": "1ddeb6bfff1a591dcc3f34dbb2229354155ae4c753f4f27ae7957ebb926857c6",
+        "properties": [
+          [
+            "ARCH",
+            "arm64"
+          ],
+          [
+            "BRANCH",
+            ""
+          ],
+          [
+            "KERNEL_RELEASE",
+            "6.6.118-android15-8-g350f378eb496-ab14943902-4k"
+          ]
+        ]
+      },
+      {
+        "algorithm": "SHA256_RSA4096",
+        "public_key_sha1": "b42c87bedcf600d7bebe3dbade2444e9724c3159",
+        "rollback_index": 0,
+        "rollback_index_location": 0,
+        "flags": 0,
+        "release_string": "avbtool 1.3.0",
+        "required_libavb_version": [
+          1,
+          0
+        ],
+        "partition_name": "generic_kernel",
+        "hash_algorithm": "sha256",
+        "hash_flags": 0,
+        "salt": "d00df00d",
+        "hashed_image_size": 36731392,
+        "digest": "b78b94bdea67834e68647575cb4896d3b41e0251573793060c828147a9b94c17",
+        "properties": [
+          [
+            "ARCH",
+            "arm64"
+          ],
+          [
+            "BRANCH",
+            ""
+          ],
+          [
+            "KERNEL_RELEASE",
+            "6.6.118-android15-8-g350f378eb496-ab14943902-4k"
+          ]
+        ]
+      }
+    ],
+    "output_gki_certificates": [
+      {
+        "algorithm": "SHA256_RSA4096",
+        "public_key_sha1": "2597c218aae470a130f61162feaae70afd97f011",
+        "rollback_index": 0,
+        "rollback_index_location": 0,
+        "flags": 0,
+        "release_string": "avbtool 1.3.0",
+        "required_libavb_version": [
+          1,
+          0
+        ],
+        "partition_name": "boot",
+        "hash_algorithm": "sha256",
+        "hash_flags": 0,
+        "salt": "d00df00d",
+        "hashed_image_size": 37187584,
+        "digest": "0c6f7a3ea8c6eadf4520bc99a1d3d15c24a31c30dd1299facde7366394759705",
+        "properties": [
+          [
+            "ARCH",
+            "arm64"
+          ],
+          [
+            "BRANCH",
+            ""
+          ],
+          [
+            "KERNEL_RELEASE",
+            "6.6.118-android15-8-g350f378eb496-ab14943902-4k"
+          ]
+        ]
+      },
+      {
+        "algorithm": "SHA256_RSA4096",
+        "public_key_sha1": "2597c218aae470a130f61162feaae70afd97f011",
+        "rollback_index": 0,
+        "rollback_index_location": 0,
+        "flags": 0,
+        "release_string": "avbtool 1.3.0",
+        "required_libavb_version": [
+          1,
+          0
+        ],
+        "partition_name": "generic_kernel",
+        "hash_algorithm": "sha256",
+        "hash_flags": 0,
+        "salt": "d00df00d",
+        "hashed_image_size": 37183200,
+        "digest": "ecb09a7af973f830d5333ec299ef7718db09ebe921c6388c6986543ba6a39bc2",
+        "properties": [
+          [
+            "ARCH",
+            "arm64"
+          ],
+          [
+            "BRANCH",
+            ""
+          ],
+          [
+            "KERNEL_RELEASE",
+            "6.6.118-android15-8-g350f378eb496-ab14943902-4k"
+          ]
+        ]
+      }
+    ],
+    "device_boot_test": "not_performed",
+    "bootloader_accepts_testkey_on_this_device": "user_reported_prior_success_not_independently_verified",
+    "susfs_ui_runtime_test": "not_performed",
+    "shell_adb_only_device_test": "not_performed",
+    "native_check_timing_test": "not_performed"
+  },
+  "independent_unpack": {
+    "magiskboot_unpack_success": true,
+    "recombined_kernel_equals_build_artifact": true,
+    "recombined_kernel_sha256": "683cf41553a8bb3ea340000f1e5a598c5463f3243ec20f6a9972f0303fc75260",
+    "boot_sha256": "d0c95937f5f3dff8c7acbfd04e41dd232d0030e1635af9ddc74293a3d8f81777",
+    "output_boot_unmodified_by_unpack": true,
+    "ramdisk_present": false,
+    "magiskboot_sha256": "21be0ef297957c74184f0632dcf7d54777f064e64c8418c7d6ee107b9ddb3ffe"
+  },
+  "deliverable": {
+    "size": 16370472,
+    "sha256": "4acb850e2c1e93c3726a52beb91f042c6be89f6d66ab0590a581fa7c4f4d5675",
+    "zip_crc_and_all_member_hashes_verified": true
+  }
+}
